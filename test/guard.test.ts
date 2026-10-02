@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { RepoNotAllowedError, assertAllowedRepo, listIssuesInputSchema } from "../src/guard.js";
+import {
+  RepoNotAllowedError,
+  assertAllowedRepo,
+  listIssuesInputSchema,
+  searchIssuesInputSchema,
+} from "../src/guard.js";
 
 describe("assertAllowedRepo", () => {
   const allowed = new Set(["kenzoob/demo"]);
@@ -40,4 +45,21 @@ describe("listIssuesInputSchema", () => {
     expect(parsed.state).toBe("open");
     expect(parsed.limit).toBe(20);
   });
+});
+
+describe("searchIssuesInputSchema", () => {
+  const schema = z.object(searchIssuesInputSchema);
+
+  it("accepts a normal search query", () => {
+    expect(() =>
+      schema.parse({ owner: "kenzoob", repo: "demo", query: "crash on startup label:bug" }),
+    ).not.toThrow();
+  });
+
+  it.each(["bug repo:someone/private", "repo:other/x", "leak org:acme", "x user:someone", "(owner:acme)"])(
+    "rejects scope qualifiers that would escape the allowlist: %s",
+    (query) => {
+      expect(() => schema.parse({ owner: "kenzoob", repo: "demo", query })).toThrow();
+    },
+  );
 });

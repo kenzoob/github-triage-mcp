@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GitHubApiError, getIssue, listIssues } from "../src/github.js";
+import { GitHubApiError, getIssue, listIssues, searchIssues } from "../src/github.js";
 
 const TOKEN = "secret-token-should-not-leak";
 
@@ -108,5 +108,32 @@ describe("github client", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).not.toContain(TOKEN);
     expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("keeps only search results from the requested repository", async () => {
+    const issue = (number: number, repoUrl: string) => ({
+      number,
+      title: `issue ${number}`,
+      state: "open",
+      labels: [],
+      user: { login: "someone" },
+      created_at: "2026-09-01T00:00:00Z",
+      comments: 0,
+      body: "",
+      repository_url: repoUrl,
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        total_count: 2,
+        items: [
+          issue(1, "https://api.github.com/repos/kenzoob/demo"),
+          issue(2, "https://api.github.com/repos/someone/private"),
+        ],
+      }),
+    );
+
+    const issues = await searchIssues(TOKEN, "kenzoob", "demo", "bug");
+
+    expect(issues.map((i) => i.number)).toEqual([1]);
   });
 });

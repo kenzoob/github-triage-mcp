@@ -26,10 +26,23 @@ export const getIssueInputSchema = {
   number: z.number().int().positive(),
 };
 
+/**
+ * GitHub search ORs multiple `repo:` qualifiers together, so a query such as
+ * `bug repo:someone/private-repo` would widen the search beyond the allowlisted
+ * repository. Qualifiers that change the search scope are rejected outright.
+ */
+const SCOPE_QUALIFIER = /(^|[\s(])-?(repo|org|user|owner):/i;
+
 export const searchIssuesInputSchema = {
   owner: ownerSchema,
   repo: repoSchema,
-  query: z.string().min(1).max(256),
+  query: z
+    .string()
+    .min(1)
+    .max(256)
+    .refine((value) => !SCOPE_QUALIFIER.test(value), {
+      message: "query must not contain repo:, org:, user: or owner: qualifiers",
+    }),
 };
 
 export const repoActivityInputSchema = {

@@ -56,6 +56,7 @@ interface RawIssue {
   readonly comments: number;
   readonly body: string | null;
   readonly pull_request?: unknown;
+  readonly repository_url?: string;
 }
 
 interface RawComment {
@@ -199,7 +200,14 @@ export async function searchIssues(
     `/search/issues?q=${encodeURIComponent(q)}&per_page=50`,
   );
 
-  return raw.items.filter((issue) => !isPullRequest(issue)).map(toIssue);
+  // Defense in depth: even if a scope qualifier slipped through validation,
+  // only keep results that really belong to the requested repository.
+  const expectedRepoUrl = `${API_BASE}/repos/${owner}/${repo}`.toLowerCase();
+
+  return raw.items
+    .filter((issue) => !isPullRequest(issue))
+    .filter((issue) => issue.repository_url?.toLowerCase() === expectedRepoUrl)
+    .map(toIssue);
 }
 
 export async function getLabels(
